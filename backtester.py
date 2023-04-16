@@ -27,7 +27,7 @@ def get_thursdays(start_date, end_date):
 
     return thursdays
 
-def get_PL_straddle(date,margin):
+def get_PL_ironc(date,spread,margin):
     nifty = get_nifty_data(date,date)
     if (nifty.empty):
         print("{} | Holiday".format(date))
@@ -36,32 +36,41 @@ def get_PL_straddle(date,margin):
     else:
         entry_spot = nifty.Open.iloc[0] #finding the entry strike price 
         entry_spot = round(entry_spot/50)*50
-        nifty_opt_CE = get_option_data(date,date,"CE",entry_spot,date)
-        nifty_opt_PE = get_option_data(date,date,"PE",entry_spot,date)
-        if(nifty_opt_CE.empty or nifty_opt_PE.empty):
+        nifty_opt_CE = get_option_data(date,date,"CE",entry_spot+spread,date)
+        nifty_opt_CE_hedge = get_option_data(date,date,"CE",entry_spot+spread+100,date)
+        nifty_opt_PE = get_option_data(date,date,"PE",entry_spot-spread,date)
+        nifty_opt_PE_hedge = get_option_data(date,date,"PE",entry_spot-spread-100,date)
+        if(nifty_opt_CE.empty or nifty_opt_PE.empty or nifty_opt_CE_hedge.empty or nifty_opt_PE_hedge.empty):
             print("{} | Data Unavailable".format(date))
             return 0
         CE_entry = nifty_opt_CE.Open.iloc[0]
         CE_exit = nifty_opt_CE.Last.iloc[0]
+        CE_hedge_entry = nifty_opt_CE_hedge.Open.iloc[0]
+        CE_hedge_exit = nifty_opt_CE_hedge.Close.iloc[0]
         PE_entry = nifty_opt_PE.Open.iloc[0]
         PE_exit = nifty_opt_PE.Last.iloc[0]
-        PL_percent = ((PE_entry-PE_exit)+(CE_entry-CE_exit))*50*100/margin
-        print("{} | {} CE | Entry = {} | Exit = {} ||| {} PE | Entry = {} | Exit = {} | P&L = {}".format(date,entry_spot,CE_entry,CE_exit,entry_spot,PE_entry,PE_exit,PL_percent.round(2)))
+        PE_hedge_entry = nifty_opt_PE_hedge.Open.iloc[0]
+        PE_hedge_exit = nifty_opt_PE_hedge.Close.iloc[0]
+        PL_percent = ((PE_entry-PE_exit)+(CE_entry-CE_exit)+(CE_hedge_exit-CE_hedge_entry)+(PE_hedge_exit-PE_hedge_entry))*50*100/margin
+        print("{} | {} CE | Entry = {} | Exit = {} ||| {} PE | Entry = {} | Exit = {} | P&L = {}".format(date,entry_spot+spread,CE_entry,CE_exit,entry_spot-spread,PE_entry,PE_exit,PL_percent.round(2)))
         return PL_percent
         
-def implement(startDate,endDate,margin):
+def implement(startDate,endDate,spread,margin):
     thursdays = get_thursdays(startDate,endDate)
     net_PL = 0
-    print("------------Thursday Short Straddle Backtester----------")
-    print("Lot Size = 50 || Approx Margin = 200000")
+    print("------------Thursday Iron Condor Backtester----------")
+    print("Lot Size = 50 || Approx Margin = {}".format(margin))
     no_trades = 0
     for i in thursdays:
-        PL = get_PL_straddle(i,margin)
+        PL = get_PL_ironc(i,spread,margin)
         net_PL = net_PL + PL 
         
-
-
     print("************BACKTEST RESULTS**************")
     print("Net Profit & Loss = {}".format(net_PL))
 
-implement(date(2021,1,1),date(2022,1,1),200000)
+implement(date(2022,1,1),date(2023,1,1),200,40000)
+
+
+
+
+
